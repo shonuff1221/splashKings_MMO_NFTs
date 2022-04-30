@@ -27,6 +27,7 @@ contract GameEquipmentWeapons is ERC721 {
     }
 
     function setMasterContract(address _newMasterContract) public {
+        require(owner ==msg.sender);
         GamecontractMaster = _newMasterContract;
     }
 
