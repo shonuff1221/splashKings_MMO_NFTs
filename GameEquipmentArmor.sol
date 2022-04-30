@@ -25,7 +25,8 @@ contract GameEquipmentArmors is ERC721 {
         owner = msg.sender;
     }
 
-    function setMasterContract(address _newMasterContract) public {
+    function setMasterContract(address _newMasterContract) external {
+        require(owner ==msg.sender);
         GamecontractMaster = _newMasterContract;
     }
 
