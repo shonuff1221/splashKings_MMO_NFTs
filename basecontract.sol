@@ -19,16 +19,31 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {GameEquipmentWeapons} from "./GameEquipmentWeapon.sol";
 import {GameEquipmentArmors} from "./GameEquipmentArmor.sol";
 import {sharedDefinitions} from "./sharedstructs.sol";
+import {CraftingLib} from "./CraftingLib.sol";
+import {GatheringLib} from "./GatheringLib.sol";
+import {CombatLib} from "./CombatLib.sol";
 
 contract BaseContract is ERC721 {
-    uint256 public PriceForNewHero = 10;
-    uint256 public PriceForNewEquipment = 5;
+    uint256 private PriceForNewHero = 10;
+    uint256 private PriceForNewEquipment = 5;
     IERC20 WaveToken;
-    address payable public owner;
-    sharedDefinitions.Hero[] public Heroes; // ERC 721 Tokens
+    address payable private owner;
+    sharedDefinitions.Hero[] private Heroes; // ERC 721 Tokens
+
+    // resource tracker
+
+    mapping(address => uint256) private PlayerWoodCount;
+    mapping(address => uint256) private PlayerStoneCount;
+    mapping(address => uint256) private PlayerIronCount;
+
+    //level tracker
+    mapping(address => uint256) public PlayerLevel;
+    mapping(address => uint256) private PlayerXP;
+
+    mapping(address => sharedDefinitions.SkillBuild) public SkillTree;
 
     event newHeroJoinsTheQuest(address indexed sender, uint256 indexed tokenId);
-
+    event levelUp(address indexed Player, uint256 indexed newLevel);
     GameEquipmentWeapons gameEquipmentWeaponContract;
     GameEquipmentArmors gameEquipmentArmorContract;
 
@@ -266,5 +281,122 @@ contract BaseContract is ERC721 {
         );
 
         return output;
+    }
+
+    function giveResource(
+        uint256 _amount,
+        address _PlayerToAward,
+        uint8 _ResourceToGive
+    ) external onlyOwner {
+        uint256 Wood = 0;
+        uint256 Stone = 1;
+        uint256 Iron = 2;
+
+        if (_ResourceToGive == Wood) {
+            PlayerWoodCount[_PlayerToAward] += _amount;
+        } else if (_ResourceToGive == Stone) {
+            PlayerStoneCount[_PlayerToAward] += _amount;
+        } else if (_ResourceToGive == Iron) {
+            PlayerIronCount[_PlayerToAward] += _amount;
+        }
+    }
+
+    function useResource(
+        uint256 _requiredAmount,
+        address _ActingPlayer,
+        uint8 _ResourceToUse
+    ) external onlyOwner returns (bool) {
+        uint256 Wood = 0;
+        uint256 Stone = 1;
+        uint256 Iron = 2;
+
+        if (_ResourceToUse == Wood) {
+            require(PlayerWoodCount[_ActingPlayer] >= _requiredAmount);
+            PlayerWoodCount[_ActingPlayer] -= _requiredAmount;
+            return true;
+        } else if (_ResourceToUse == Stone) {
+            require(PlayerStoneCount[_ActingPlayer] >= _requiredAmount);
+            PlayerStoneCount[_ActingPlayer] -= _requiredAmount;
+            return true;
+        } else if (_ResourceToUse == Iron) {
+            require(PlayerIronCount[_ActingPlayer] >= _requiredAmount);
+            PlayerIronCount[_ActingPlayer] -= _requiredAmount;
+            return true;
+        }
+
+        return false;
+    }
+
+    function giveXPtoPlayer(uint256 _amount, address _PlayerToAward)
+        external
+        onlyOwner
+    {
+        PlayerXP[_PlayerToAward] += _amount;
+        CheckIfLevelup(_PlayerToAward);
+    }
+
+    uint256 private BaseLevelupXPRequired = 100;
+
+    function CheckIfLevelup(address _PlayerToAward) private onlyOwner {
+        require(
+            PlayerLevel[_PlayerToAward] * BaseLevelupXPRequired <
+                PlayerXP[_PlayerToAward]
+        ); // every levelup requires Currentlevel * BaseLevelupXPRequired
+
+        PlayerXP[_PlayerToAward] -=
+            PlayerLevel[_PlayerToAward] *
+            BaseLevelupXPRequired;
+        PlayerLevel[_PlayerToAward] += 1;
+        SkillTree[msg.sender].availableSkillpoints += 1;
+        emit levelUp(_PlayerToAward, PlayerLevel[_PlayerToAward]);
+    }
+
+    function Skilling(uint256 _amount, uint8 _SkillToRaise) external {
+        require(SkillTree[msg.sender].availableSkillpoints >= _amount);
+
+        if (_SkillToRaise == 0) {
+            SkillTree[msg.sender].availableSkillpoints -= _amount;
+            SkillTree[msg.sender].Crafting += _amount;
+        } else if (_SkillToRaise == 1) {
+            SkillTree[msg.sender].availableSkillpoints -= _amount;
+            SkillTree[msg.sender].Combat += _amount;
+        } else if (_SkillToRaise == 2) {
+            SkillTree[msg.sender].availableSkillpoints -= _amount;
+            SkillTree[msg.sender].Gathering += _amount;
+        }
+    }
+
+    function PlayerCastsSkill(
+        string memory _SkillToCast,
+        uint256 _TargetID,
+        uint8 _category
+    ) external {
+        //crafting
+        if (_category == 0) {
+            CraftingLib.CraftingSkillCast(
+                _SkillToCast,
+                _TargetID,
+                gameEquipmentWeaponContract,
+                gameEquipmentArmorContract,
+                PlayerLevel[msg.sender]
+            );
+        }
+        //combat
+        else if (_category == 1) {
+            CombatLib.CombatSkillCast(
+                _SkillToCast,
+                PlayerLevel[msg.sender],
+                Heroes[_TargetID]
+            );
+        }
+        //gathering skills disabled for now.
+        /*  else if(_category == 2){
+
+            
+
+            GatheringLib.GatheringSkillCast();
+
+        }
+*/
     }
 }
