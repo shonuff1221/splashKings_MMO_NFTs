@@ -39,6 +39,16 @@ library sharedDefinitions {
         int256 ManaStat;
     }
 
+
+    struct SkillBuild{
+     
+        uint Crafting   ;
+        uint Combat     ;
+        uint Gathering  ;
+        uint availableSkillpoints;
+
+    }
+
     enum WeaponTypes {
         Sword,
         Staff,
@@ -58,4 +68,7 @@ library sharedDefinitions {
         Archer,
         Warrior
     }
+
+
+    
 }
