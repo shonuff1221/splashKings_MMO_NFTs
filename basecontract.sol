@@ -189,7 +189,7 @@ contract BaseContract is ERC721 {
 
     function createNewWeapon(uint8 _WeaponTypeToForge) public payable {
         require(
-            PriceForNewEquipment >= GetAllowance(),
+           GetAllowance()  >= PriceForNewEquipment,
             "Not enough approved Tokens, please approve before transferring"
         );
         WaveToken.transfer(address(this), PriceForNewEquipment); // transfer of Tokens to this contract
@@ -202,7 +202,7 @@ contract BaseContract is ERC721 {
 
     function createNewArmor(uint8 _ArmorTypeToForge) public payable {
         require(
-            PriceForNewEquipment >= GetAllowance(),
+             GetAllowance()  >= PriceForNewEquipment,
             "Not enough approved Tokens, please approve before transferring"
         );
         WaveToken.transfer(address(this), PriceForNewEquipment); // transfer of Tokens to this contract
